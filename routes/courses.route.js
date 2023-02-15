@@ -78,6 +78,9 @@ route.get("/popular", async (req, res, next) => {
   return res.ok(returnVal);
 });
 
+//  GET /get popular courses
+route.get("/myCourses", async (req, res, next) => {});
+
 //  GET / get questions
 route.get("/questions", async (req, res) => {
   const resp = await questions.get();
@@ -95,6 +98,15 @@ route.get("/name", async (req, res) => {
   const courseName = req.query.courseName;
   const course = await courses.getByCourseName(courseName);
   res.ok(course);
+});
+
+//  GET /get question by name
+route.get("/questions/name", async (req, res) => {
+  const question = req.query.question;
+  console.log("question", question);
+  const resp = await questions.getByQuestionName(question);
+  console.log("getByQuestionName", resp);
+  res.ok(resp);
 });
 
 //  GET /get course by id
@@ -122,18 +134,19 @@ route.get("/fields/:id", async (req, res) => {
 route.post("/addCourse/:fieldName", async (req, res) => {
   const { courseName } = req.body;
   if (await checkIfCourseExists(courseName)) {
-    return res.ok(ErrItemAlreadyExists("course"));
+    return res.send(ErrItemAlreadyExists("course"));
   }
   try {
     const newCourse = await courses.addItem(req.body);
-
+    const resp = await updateRating(newCourse._id);
+    console.log("resp", resp);
     const fieldName = req.params.fieldName;
 
     await updateFieldWithCourse(fieldName, newCourse._id);
-    return res.ok(newCourse);
+    return res.send(newCourse);
   } catch (error) {
     console.log(error);
-    return res.ok(error);
+    return res.send(error);
   }
 });
 
@@ -149,10 +162,11 @@ route.post("/questions/:courseName", async (req, res) => {
     console.log("newQuestion", newQuestion);
 
     const courseName = req.params.courseName;
+
     const resp = await updateCourseWithQuestion(courseName, newQuestion._id);
-    return res.ok(resp);
+    return res.send(newQuestion);
   } catch (error) {
-    return res.ok(error);
+    return res.send(error);
   }
 });
 
@@ -201,7 +215,7 @@ route.get("/images/:key", (req, res) => {
 });
 
 //  POST /post course page image
-route.post("/images/page-img/:id", upload.single("image"), async (req, res) => {
+route.post("/images/page/:id", upload.single("image"), async (req, res) => {
   try {
     const file = req.file;
     const result = await uploadFile(file);
@@ -219,7 +233,7 @@ route.post("/images/page-img/:id", upload.single("image"), async (req, res) => {
 });
 
 //  POST /post course icon image
-route.post("/images/card-img/:id", upload.single("image"), async (req, res) => {
+route.post("/images/card/:id", upload.single("image"), async (req, res) => {
   try {
     const file = req.file;
     const result = await uploadFile(file);
@@ -237,71 +251,132 @@ route.post("/images/card-img/:id", upload.single("image"), async (req, res) => {
   }
 });
 
+route.post("/images/question/:id", upload.single("image"), async (req, res) => {
+  try {
+    const file = req.file;
+    const result = await uploadFile(file);
+    await unlinkFile(file.path);
+    const description = req.body.description;
+    const { id } = req.params;
+    const json = req.body;
+    const expendedJson = { ...json, questionImg: file.filename };
+    const resp = await questions.updateItem(id, expendedJson);
+
+    res.send(resp);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send(err);
+  }
+});
+
 //  POST /login start courses
-route.post("/login/startClass/:id", async (req, res, next) => {
+route.post("/login/rate/:id", async (req, res, next) => {
   // Extract the classId from the request body
-  const { id } = req.params;
-  const userId = "63cbd8e3bada8aef60f30945";
+  const userId = req.params.id;
+  const courseId = req.body.id;
   // Get the user object from the database
   const user = await users.getById(userId);
-  // Check if the user has already started the class
-  if (!user.courses[id]) {
-    // If not, increment the class's rating
-    const resp = await updateRating(id);
-    return res.ok(resp);
-  } else {
-    // Add the class to the user's list of classes
-    await user.courses.push(id);
-    let temp = user._id;
-    delete user._id;
-    const userUpdate = await users.updateItem(temp, user);
 
-    // Update the class rating in the database
-    const resp = await updateRating(id);
-
-    return res.ok(resp);
+  if (!user.courses) {
+    user.courses = {};
   }
+
+  if (!user.courses[courseId]) {
+    user.courses[courseId] = [];
+  }
+
+  // If not, increment the class's rating Add the class to the user's list of classes
+  await users.updateItem(user._id, user);
+
+  // Update the class rating in the database
+  const resp = await updateRating(courseId);
+  return res.ok(resp);
 });
 
 //  POST /notLogin start courses
 route.post("/rate/:id", async (req, res, next) => {
   const { id } = req.params;
+  console.log("id =>", id);
   const resp = await updateRating(id);
+  console.log("resp =>", resp);
   return res.ok(resp);
 });
 
-//POST /submit answer
+// //POST /submit answer
+// route.post("/login/submitAnswer/:id", async (req, res, next) => {
+//   // get the question id from the request parameters
+//   const questionId = req.params.id;
+//   const { courseId } = req.body;
+//   const { userId } = req.body;
+
+//   //chek if user logged
+
+//   const Authorization = req.headers.authorization;
+
+//   const { success: isLogged } = await checkIfUserLogged(Authorization);
+
+//   if (!isLogged) {
+//     return res.ok("not logged");
+//   }
+
+//   const user = await users.getById(userId);
+
+//   // check if the user has not yet started any course
+//   if (!user.courses) {
+//     user.courses = {};
+//     user.courses[courseId] = [questionId];
+//     const temp = user._id;
+//     delete user._id;
+//     await users.updateItem(temp, user);
+//     return res.ok("Your Answer has been successfully received");
+//   }
+//   // check if the user has not yet started the course
+//   if (!user.courses[courseId]) {
+//     user.courses[courseId] = [questionId];
+//     const temp = user._id;
+//     delete user._id;
+//     await users.updateItem(temp, user);
+//     return res.ok("Your Answer has been successfully received");
+//   }
+//   // check if the user has not yet answered the question
+//   if (!user.courses[courseId].includes(questionId)) {
+//     user.courses[courseId] = [...user.courses[courseId], questionId];
+//     const temp = user._id;
+//     delete user._id;
+//     await users.updateItem(temp, user);
+//     return res.ok("Your Answer has been successfully received");
+//   }
+//   return res.ok("You have already answered this question");
+// });
+
 route.post("/login/submitAnswer/:id", async (req, res, next) => {
-  // get the question id from the request parameters
+  const { courseId, userId } = req.body;
   const questionId = req.params.id;
-  const { courseId } = req.body;
+  const [isLogged, user] = await Promise.all([
+    checkIfUserLogged(req.headers.authorization),
+    users.getById(userId),
+  ]);
 
-  //chek if user logged
-
-  const { authorization } = req.headers;
-  const { success: isLogged } = await checkIfUserLogged(authorization);
-  if (!isLogged) {
+  if (!isLogged.success) {
     return res.ok("not logged");
   }
-
-  const user = await users.getById("63d68d021ac39432d01f6ee0");
+  // check if the user has not yet started any course
+  if (!user.courses) {
+    user.courses = {};
+  }
   // check if the user has not yet started the course
   if (!user.courses[courseId]) {
-    user.courses[courseId] = [questionId];
-    const temp = user._id;
-    delete user._id;
-    await users.updateItem(temp, user);
-    return res.ok("Your Answer has been successfully received");
+    user.courses[courseId] = [];
+  }
+
+  if (user.courses[courseId].includes(questionId)) {
+    return res.ok("You have already answered this question");
   }
   // check if the user has not yet answered the question
-  if (!user.courses[courseId].includes(questionId)) {
-    user.courses[courseId] = [...user.courses[courseId], questionId];
-    const temp = user._id;
-    delete user._id;
-    await users.updateItem(temp, user);
-    return res.ok("Your Answer has been successfully received");
-  }
-  return res.ok("You have already answered this question");
+  user.courses[courseId].push(questionId);
+  await users.updateItem(user._id, user);
+
+  return res.ok("Your Answer has been successfully received");
 });
 
 // route.post("/login/submitAnswer/:id", async (req, res, next) => {

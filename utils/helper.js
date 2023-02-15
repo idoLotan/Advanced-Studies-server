@@ -1,4 +1,5 @@
 const DB = require("../lib/dbControler");
+const { jwtVerify } = require("../lib/JWT");
 const { ErrItemDoesntExist } = require("../lib/ResponseHandler");
 
 const fields = new DB("fields");
@@ -31,9 +32,9 @@ module.exports.checkIfQuestionExists = async (questionName) => {
   return true;
 };
 
-module.exports.updateFieldWithCourse = async (fieldName, courseId) => {
+module.exports.updateFieldWithCourse = async (fieldName, courseObjectId) => {
   const field = await fields.getByFieldName(fieldName);
-  console.log("field", field);
+  const courseId = courseObjectId.toString();
   if (!field.course) {
     field.course = [courseId];
   } else {
@@ -42,21 +43,40 @@ module.exports.updateFieldWithCourse = async (fieldName, courseId) => {
   await fields.updateItem(field._id, field);
 };
 
+// module.exports.updateCourseWithQuestion = async (courseName, questionId) => {
+//   try {
+//     console.log("courseName, questionId", courseName, questionId);
+//     const course = await courses.getByCourseName(courseName);
+//     console.log("course", course);
+//     if (!course.questions) {
+//       console.log("!course.questions");
+//       course.questions = [questionId];
+//     } else {
+//       course.questions = [...course.questions, questionId];
+//     }
+//     const courseIdTemp = course._id;
+//     delete course._id;
+//     const resp = await fields.updateItem(course._id, course);
+//     console.log("updateItem", resp);
+//     return;
+//   } catch (err) {
+//     console.log(err);
+//   }
+// };
+
 module.exports.updateCourseWithQuestion = async (courseName, questionId) => {
   try {
-    console.log("courseName, questionId", courseName, questionId);
-    const course = await courses.getByCourseName(courseName);
-    console.log(course, course);
-    if (!course.questions) {
-      console.log("first");
-      course.questions = [questionId];
-    } else {
-      course.questions = [...course.questions, questionId];
-    }
-    const resp = await fields.updateItem(course._id, course);
+    const courseDetails = await courses.getByCourseName(courseName);
+    let questions = courseDetails.questions || [];
+    questions = [...questions, questionId.toString()];
+    courseDetails.questions = questions;
+    const courseId = courseDetails._id;
+    delete courseDetails._id;
+    const updateResponse = await courses.updateItem(courseId, courseDetails);
+    console.log("updateResponse", updateResponse);
     return;
-  } catch (err) {
-    console.log(err);
+  } catch (error) {
+    console.error(error);
   }
 };
 
@@ -134,6 +154,7 @@ module.exports.checkIfUserLogged = async (authorization) => {
   } else {
     try {
       const decoded = jwtVerify(authorization);
+
       const user = await users.getById(decoded.id);
       if (!user) {
         return { success: false, message: "User not found" };
@@ -144,20 +165,37 @@ module.exports.checkIfUserLogged = async (authorization) => {
     }
   }
 };
+//old ver
+// module.exports.updateRating = async (id) => {
+//   const rating = await courseRating.get();
+//   if (!rating[0][id]) {
+//     rating[0][id] = 1;
+//     const recordId = rating[0]._id;
+//     delete rating[0]._id;
+//     const resp = await courseRating.updateItem(recordId, rating[0]);
+//     return resp;
+//   }
 
-module.exports.updateRating = async (id) => {
-  const rating = await courseRating.get();
-  if (!rating[0][id]) {
-    rating[0][id] = 1;
-    const ObjectID = rating[0]._id;
-    delete rating[0]._id;
-    const resp = await courseRating.updateItem(ObjectID, rating[0]);
-    return resp;
+//   rating[0][id]++;
+//   const recordId = rating[0]._id;
+//   delete rating[0]._id;
+//   const resp = await courseRating.updateItem(recordId, rating[0]);
+//   return resp;
+// };
+
+module.exports.updateRating = async (courseId) => {
+  const ratingRecord = await courseRating.get();
+  const courseRatings = ratingRecord[0];
+
+  if (!courseRatings[courseId]) {
+    courseRatings[courseId] = 1;
+  } else {
+    courseRatings[courseId]++;
   }
 
-  rating[0][id]++;
-  const ObjectID = rating[0]._id;
-  delete rating[0]._id;
-  const resp = await courseRating.updateItem(ObjectID, rating[0]);
-  return resp;
+  const recordId = courseRatings._id;
+  delete courseRatings._id;
+
+  const updateResponse = await courseRating.updateItem(recordId, courseRatings);
+  return updateResponse;
 };
