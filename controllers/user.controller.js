@@ -43,7 +43,6 @@ module.exports.postRegister = async (req, res, next) => {
 module.exports.postLogin = async (req, res, next) => {
   //get the user
   const { email, password } = req.body;
-  console.log("req.body", req.body);
 
   const user = await getUserByEmail(email);
 

@@ -17,6 +17,7 @@ module.exports.checkIfFieldExists = async (fieldName) => {
 };
 
 module.exports.checkIfCourseExists = async (courseName) => {
+  console.log("courseName", courseName);
   const existingField = await courses.getByCourseName(courseName);
   if (!existingField) {
     return false;
@@ -34,6 +35,7 @@ module.exports.checkIfQuestionExists = async (questionName) => {
 
 module.exports.updateFieldWithCourse = async (fieldName, courseObjectId) => {
   const field = await fields.getByFieldName(fieldName);
+
   const courseId = courseObjectId.toString();
   if (!field.course) {
     field.course = [courseId];
@@ -73,7 +75,6 @@ module.exports.updateCourseWithQuestion = async (courseName, questionId) => {
     const courseId = courseDetails._id;
     delete courseDetails._id;
     const updateResponse = await courses.updateItem(courseId, courseDetails);
-    console.log("updateResponse", updateResponse);
     return;
   } catch (error) {
     console.error(error);
@@ -102,16 +103,19 @@ module.exports.updateCourseRathing = async (courseId) => {
 
 module.exports.searchFields = async (textToSearchBy) => {
   const AllField = await fields.get();
-  console.log("AllField", AllField);
   return AllField.filter((field) => field.field.includes(textToSearchBy));
 };
 
 module.exports.searchCoursesByFields = async (matchingFields) => {
   const matchingCourses = await Promise.all(
     matchingFields.map(async (field) => {
-      return field.course.map(async (id) => await courses.getById(id));
+      const coursesList = await Promise.all(
+        field.course.map(async (id) => await courses.getById(id))
+      );
+      return coursesList;
     })
   );
+
   return [].concat(...matchingCourses);
 };
 
@@ -122,10 +126,10 @@ module.exports.searchCoursesByName = async (textToSearchBy) =>
 
 module.exports.handleSearchResults = (returnList, res) => {
   if (returnList.length == 0) {
-    return res.ok(
+    return res.send(
       ErrItemDoesntExist("A field or course that matches the search term")
     );
-  } else return res.ok(returnList);
+  } else return res.send(returnList);
 };
 
 // module.exports.checkIfUserLogged = async (authorization) => {
@@ -154,7 +158,6 @@ module.exports.checkIfUserLogged = async (authorization) => {
   } else {
     try {
       const decoded = jwtVerify(authorization);
-
       const user = await users.getById(decoded.id);
       if (!user) {
         return { success: false, message: "User not found" };

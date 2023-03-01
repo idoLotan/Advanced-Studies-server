@@ -9,12 +9,8 @@ module.exports.getUserByEmail = async (email) => {
 };
 
 module.exports.getUserToken = (user) => {
-  console.log("getUserToken", user);
   const id = user._id;
-  console.log("id", id);
   delete user.password;
-
   const access_token = jwtSign({ id });
-
   return access_token;
 };

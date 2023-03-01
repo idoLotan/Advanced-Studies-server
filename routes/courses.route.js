@@ -28,6 +28,8 @@ const unlinkFile = util.promisify(fs.unlink);
 const multer = require("multer");
 const { getFileStream, uploadFile } = require("../lib/s3");
 const { jwtVerify } = require("../lib/JWT");
+const { log } = require("console");
+const { CloudWatchLogs } = require("aws-sdk");
 const upload = multer({ dest: "uploads/" });
 
 //  GET / get courses
@@ -36,9 +38,21 @@ route.get("/", async (req, res) => {
   res.send(resp);
 });
 
+route.get("/me", async (req, res) => {
+  const textToSearchBy = req.query.text;
+
+  const matchingFields = await searchFields(textToSearchBy);
+  let returnList = await searchCoursesByFields(matchingFields);
+  if (returnList.length === 0) {
+    returnList = await searchCoursesByName(textToSearchBy);
+  }
+  handleSearchResults(returnList, res);
+});
+
 //  GET / search course
 route.get("/search", async (req, res) => {
   const textToSearchBy = req.query.text;
+
   const matchingFields = await searchFields(textToSearchBy);
   let returnList = await searchCoursesByFields(matchingFields);
   if (returnList.length === 0) {
@@ -92,6 +106,15 @@ route.get("/fields", async (req, res) => {
   const resp = await fields.get();
   res.send(resp);
 });
+//  GET /get field by name
+route.get("/fields/name", async (req, res) => {
+  const fieldName = req.query.fieldName;
+  console.log("fieldName", fieldName);
+
+  const field = await fields.getByFieldName(fieldName);
+  console.log("field", field);
+  res.send(field);
+});
 
 //  GET /get course by name
 route.get("/name", async (req, res) => {
@@ -103,9 +126,7 @@ route.get("/name", async (req, res) => {
 //  GET /get question by name
 route.get("/questions/name", async (req, res) => {
   const question = req.query.question;
-  console.log("question", question);
   const resp = await questions.getByQuestionName(question);
-  console.log("getByQuestionName", resp);
   res.ok(resp);
 });
 
@@ -139,7 +160,6 @@ route.post("/addCourse/:fieldName", async (req, res) => {
   try {
     const newCourse = await courses.addItem(req.body);
     const resp = await updateRating(newCourse._id);
-    console.log("resp", resp);
     const fieldName = req.params.fieldName;
 
     await updateFieldWithCourse(fieldName, newCourse._id);
@@ -152,14 +172,12 @@ route.post("/addCourse/:fieldName", async (req, res) => {
 
 //  POST /add question
 route.post("/questions/:courseName", async (req, res) => {
-  console.log("first");
   const { question } = req.body;
   if (await checkIfQuestionExists(question)) {
     return res.ok(ErrItemAlreadyExists("question"));
   }
   try {
     const newQuestion = await questions.addItem(req.body);
-    console.log("newQuestion", newQuestion);
 
     const courseName = req.params.courseName;
 
@@ -240,6 +258,7 @@ route.post("/images/card/:id", upload.single("image"), async (req, res) => {
     await unlinkFile(file.path);
     const description = req.body.description;
     const { id } = req.params;
+    console.log("id =>", id);
     const json = req.body;
     const expendedJson = { ...json, iconImgUrl: file.filename };
     const resp = await courses.updateItem(id, expendedJson);
@@ -296,59 +315,13 @@ route.post("/login/rate/:id", async (req, res, next) => {
 //  POST /notLogin start courses
 route.post("/rate/:id", async (req, res, next) => {
   const { id } = req.params;
-  console.log("id =>", id);
+
   const resp = await updateRating(id);
-  console.log("resp =>", resp);
+
   return res.ok(resp);
 });
 
 // //POST /submit answer
-// route.post("/login/submitAnswer/:id", async (req, res, next) => {
-//   // get the question id from the request parameters
-//   const questionId = req.params.id;
-//   const { courseId } = req.body;
-//   const { userId } = req.body;
-
-//   //chek if user logged
-
-//   const Authorization = req.headers.authorization;
-
-//   const { success: isLogged } = await checkIfUserLogged(Authorization);
-
-//   if (!isLogged) {
-//     return res.ok("not logged");
-//   }
-
-//   const user = await users.getById(userId);
-
-//   // check if the user has not yet started any course
-//   if (!user.courses) {
-//     user.courses = {};
-//     user.courses[courseId] = [questionId];
-//     const temp = user._id;
-//     delete user._id;
-//     await users.updateItem(temp, user);
-//     return res.ok("Your Answer has been successfully received");
-//   }
-//   // check if the user has not yet started the course
-//   if (!user.courses[courseId]) {
-//     user.courses[courseId] = [questionId];
-//     const temp = user._id;
-//     delete user._id;
-//     await users.updateItem(temp, user);
-//     return res.ok("Your Answer has been successfully received");
-//   }
-//   // check if the user has not yet answered the question
-//   if (!user.courses[courseId].includes(questionId)) {
-//     user.courses[courseId] = [...user.courses[courseId], questionId];
-//     const temp = user._id;
-//     delete user._id;
-//     await users.updateItem(temp, user);
-//     return res.ok("Your Answer has been successfully received");
-//   }
-//   return res.ok("You have already answered this question");
-// });
-
 route.post("/login/submitAnswer/:id", async (req, res, next) => {
   const { courseId, userId } = req.body;
   const questionId = req.params.id;
@@ -378,30 +351,5 @@ route.post("/login/submitAnswer/:id", async (req, res, next) => {
 
   return res.ok("Your Answer has been successfully received");
 });
-
-// route.post("/login/submitAnswer/:id", async (req, res, next) => {
-//   // get the question id and courseId from the request parameters
-//   const questionId = req.params.id;
-//   const { courseId } = req.body;
-
-//   // check if user is logged in
-//   const { authorization } = req.headers;
-//   const { success: isLogged } = await checkIfUserLogged(authorization);
-//   if (!isLogged) {
-//     return res.ok("not logged");
-//   }
-
-//   // get user data
-//   const user = await users.getById("63d68d021ac39432d01f6ee0");
-
-//   // check if the user has not yet started the course or answered the question
-//   if (!user.courses[courseId] || !user.courses[courseId].includes(questionId)) {
-//     user.courses[courseId] = [...(user.courses[courseId] || []), questionId];
-//     await users.updateItem(user._id, user);
-//     return res.ok("Your Answer has been successfully received");
-//   }
-
-//   return res.ok("You have already answered this question");
-// });
 
 module.exports = route;
