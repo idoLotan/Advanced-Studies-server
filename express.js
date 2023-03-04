@@ -24,33 +24,37 @@ app.use(
 );
 
 //auth middleware
-// app.use(async (req, res, next) => {
-//   const authorized = ["/users/login", "/users/register"];
+app.use(async (req, res, next) => {
+  const authorized = ["/users/login", "/users/register"];
 
-//   if (authorized.includes(req.url)) {
-//     return next();
-//   }
-//   console.log("req.headers", req.headers);
-//   const { authorization } = req.headers;
-//   console.log("authorization", authorization);
-//   try {
-//     const decoded = jwtVerify(authorization);
-//     console.log("decoded", decoded);
-//     const user = await users.getById(decoded.id);
-//     console.log("user", user);
-//     if (!user) {
-//       return next(ErrUserNotFound());
-//     }
+  if (authorized.includes(req.url)) {
+    return next();
+  }
 
-//     delete user.password;
+  const requestUrl = req.url;
 
-//     req.user = user;
+  if (requestUrl.includes("/images") || requestUrl.includes("/courses")) {
+    return next();
+  }
 
-//     return next();
-//   } catch (error) {
-//     next(ErrNotAuthed());
-//   }
-// });
+  const { authorization } = req.headers;
+
+  try {
+    const decoded = jwtVerify(authorization);
+    const user = await users.getById(decoded.id);
+    if (!user) {
+      return next(ErrUserNotFound());
+    }
+
+    delete user.password;
+
+    req.user = user;
+
+    return next();
+  } catch (error) {
+    next(ErrNotAuthed());
+  }
+});
 
 //3) verify that the token is valid
 //4) verify user exist

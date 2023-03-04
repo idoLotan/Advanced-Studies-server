@@ -16,20 +16,15 @@ const {
   updateRating,
 } = require("../utils/helper");
 const fs = require("fs");
-const ObjectId = require("mongodb").ObjectID;
 const questions = new DB("questions");
 const fields = new DB("fields");
 const courses = new DB("courses");
 const courseRating = new DB("course-rating");
 const users = new DB("users");
-
 const util = require("util");
 const unlinkFile = util.promisify(fs.unlink);
 const multer = require("multer");
 const { getFileStream, uploadFile } = require("../lib/s3");
-const { jwtVerify } = require("../lib/JWT");
-const { log } = require("console");
-const { CloudWatchLogs } = require("aws-sdk");
 const upload = multer({ dest: "uploads/" });
 
 //  GET / get courses

@@ -45,27 +45,6 @@ module.exports.updateFieldWithCourse = async (fieldName, courseObjectId) => {
   await fields.updateItem(field._id, field);
 };
 
-// module.exports.updateCourseWithQuestion = async (courseName, questionId) => {
-//   try {
-//     console.log("courseName, questionId", courseName, questionId);
-//     const course = await courses.getByCourseName(courseName);
-//     console.log("course", course);
-//     if (!course.questions) {
-//       console.log("!course.questions");
-//       course.questions = [questionId];
-//     } else {
-//       course.questions = [...course.questions, questionId];
-//     }
-//     const courseIdTemp = course._id;
-//     delete course._id;
-//     const resp = await fields.updateItem(course._id, course);
-//     console.log("updateItem", resp);
-//     return;
-//   } catch (err) {
-//     console.log(err);
-//   }
-// };
-
 module.exports.updateCourseWithQuestion = async (courseName, questionId) => {
   try {
     const courseDetails = await courses.getByCourseName(courseName);
@@ -132,26 +111,6 @@ module.exports.handleSearchResults = (returnList, res) => {
   } else return res.send(returnList);
 };
 
-// module.exports.checkIfUserLogged = async (authorization) => {
-//   if (!authorization) {
-//     console.log("not connected ");
-//     return false;
-//   } else {
-//     try {
-//       const decoded = jwtVerify(authorization);
-//       const user = await users.getById(decoded.id);
-//       if (!user) {
-//         console.log("not connected ");
-//         return false;
-//       }
-//       console.log("connected");
-//       return true;
-//     } catch (err) {
-//       console.log(err);
-//     }
-//   }
-// };
-
 module.exports.checkIfUserLogged = async (authorization) => {
   if (!authorization) {
     return { success: false, message: "User not logged in" };
@@ -168,23 +127,6 @@ module.exports.checkIfUserLogged = async (authorization) => {
     }
   }
 };
-//old ver
-// module.exports.updateRating = async (id) => {
-//   const rating = await courseRating.get();
-//   if (!rating[0][id]) {
-//     rating[0][id] = 1;
-//     const recordId = rating[0]._id;
-//     delete rating[0]._id;
-//     const resp = await courseRating.updateItem(recordId, rating[0]);
-//     return resp;
-//   }
-
-//   rating[0][id]++;
-//   const recordId = rating[0]._id;
-//   delete rating[0]._id;
-//   const resp = await courseRating.updateItem(recordId, rating[0]);
-//   return resp;
-// };
 
 module.exports.updateRating = async (courseId) => {
   const ratingRecord = await courseRating.get();

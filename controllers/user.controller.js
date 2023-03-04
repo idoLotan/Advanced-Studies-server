@@ -35,8 +35,8 @@ module.exports.postRegister = async (req, res, next) => {
   const newUser = await users.addItem(json);
   const expendedJson = { ...json, id: newUser.insertedId };
   const resp = await users.updateItem(newUser.insertedId, expendedJson);
-
-  res.create({ ...json, _id: newUser.insertedId });
+  const access_token = getUserToken(newUser);
+  res.create({ ...json, _id: newUser.insertedId, access_token });
 };
 
 //POST /login
