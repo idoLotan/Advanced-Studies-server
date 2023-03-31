@@ -11,7 +11,6 @@ const { usersSchema, userRegistrationSchema } = require("../dto/users.schema");
 const DB = require("../lib/dbControler");
 route.post("/register", validateDto(userRegistrationSchema), postRegister);
 route.post("/login", postLogin);
-
 route.get("/permissions", getPermissions);
 route.get("/me", getMe);
 

@@ -24,7 +24,7 @@ const users = new DB("users");
 const util = require("util");
 const unlinkFile = util.promisify(fs.unlink);
 const multer = require("multer");
-const { getFileStream, uploadFile } = require("../lib/s3");
+const { getFileStream, uploadFile, uploadVideoFile } = require("../lib/s3");
 const upload = multer({ dest: "uploads/" });
 
 //  GET / get courses
@@ -227,6 +227,19 @@ route.get("/images/:key", (req, res) => {
   readStream.pipe(res);
 });
 
+//  POST /post image
+route.post("/images", upload.single("image"), async (req, res) => {
+  try {
+    const file = req.file;
+    const result = await uploadFile(file);
+    await unlinkFile(file.path);
+    res.send(file.filename);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send(err);
+  }
+});
+
 //  POST /post course page image
 route.post("/images/page/:id", upload.single("image"), async (req, res) => {
   try {
@@ -265,6 +278,25 @@ route.post("/images/card/:id", upload.single("image"), async (req, res) => {
   }
 });
 
+route.post("/videos", upload.single("video"), async (req, res) => {
+  try {
+    // Check if file was uploaded
+    console.log("req.files", req.file);
+
+    // Get the uploaded video file
+    const videoFile = req.file;
+
+    // Upload the video file to S3
+    const s3Response = await uploadVideoFile(videoFile);
+
+    // Return the S3 response to the client
+    res.send(s3Response);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error uploading video file");
+  }
+});
+
 route.post("/images/question/:id", upload.single("image"), async (req, res) => {
   try {
     const file = req.file;
@@ -298,6 +330,8 @@ route.post("/login/rate/:id", async (req, res, next) => {
   if (!user.courses[courseId]) {
     user.courses[courseId] = [];
   }
+
+  user.lastCourse = courseId;
 
   // If not, increment the class's rating Add the class to the user's list of classes
   await users.updateItem(user._id, user);
