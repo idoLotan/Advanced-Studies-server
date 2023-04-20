@@ -19,6 +19,11 @@ nodemon app.js
 npm i express
 ```
 
+#### install mongodb
+```bash
+npm i mongodb
+```
+
 ```js
 const express = require('express');
 const app = express();

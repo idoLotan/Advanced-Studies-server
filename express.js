@@ -6,6 +6,7 @@ require("dotenv").config();
 const ObjectId = require("mongodb").ObjectID;
 const DB = require("./lib/dbControler");
 const users = new DB("users");
+const { MongoClient } = require("mongodb");
 const {
   ErrNotAuthed,
   ErrUserNotFound,
@@ -13,6 +14,8 @@ const {
   CreatedRes,
 } = require("./lib/ResponseHandler");
 const { jwtVerify } = require("./lib/JWT");
+const uri = process?.env?.MONGODB_CONNECTION_STRING;
+const client = new MongoClient(uri);
 
 //auth layer
 
@@ -86,6 +89,18 @@ app.use((err, req, res, next) => {
   res.send(err);
 });
 
-app.listen(process.env.PORT, () => {
-  console.log("Express is listening on port ", process.env.PORT);
+// app.listen(process.env.PORT, () => {
+//   console.log("Express is listening on port ", process.env.PORT);
+// });
+
+client.connect((err) => {
+  console.log("connected to mongo");
+  if (err) {
+    console.error(err);
+    return false;
+  }
+  // connection to mongo is successful, listen for requests
+  app.listen(process.env.PORT, () => {
+    console.log("Express is listening on port ", process.env.PORT);
+  });
 });
